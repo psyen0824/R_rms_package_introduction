@@ -1,0 +1,254 @@
+---
+title: "rms (Regression Modeling Strategies) R package Introduction"
+author: "Pei-Shan Yen"
+date: "9/30/2020"
+output: word_document
+---
+#### Purpose: explore and compare the rms package with common modeling function in R
+#### Demonstration version: R (4.0.2)
+#### Author: Pei-Shan Yen, Yi-Fan Chen (Biostatistics Core, Center for Clinical and Translational Science, University of Illinois at Chicago).\
+
+## Package Introduction
+
+The rms package in R software, originally named ‘Design’ package, provides a collection of pragmatic functions to construct and evaluate regression models. This package accompanies the book “Regression Modeling Strategies” by Frank Harrell.
+
+This rms package exploration will introduce 1) the function datadist() for summary statistics, 2) the function lrm() for the construction of binary and ordinal logistic regression models, 3) the function ols() for the construction of linear models, and 4) the function xxx() for the construction of cox regression for survival analysis. While there are other functions for performing other regression models, such as quantile regression, they will not be included.
+
+The R document of the rms package. https://www.rdocumentation.org/packages/rms/versions/6.0-1
+
+
+## 1. Summary Statistics
+
+### 1.1 the function datadist() in the rms package
+
+The function datadist() in the rms package is to determine the distribution summaries for the predictor variables in regression models. To demonstrate the use of function datadist(),  this exploration will use the resect dataset from Riffenburgh (2006). The dataset includes 134 patients who have undergone resection of tumors in the trachea. The dataset contains 6 variables, defined as follows:
+
+- id = a patient ID,
+
+- age= the patient’s age at surgery,
+
+- prior = prior tracheal surgery (1 = yes, 0 = no),
+
+- resection = extent of the resection (in cm),
+
+- intubated = whether intubation was required at the end of surgery (1 = yes, 0 = no), and
+
+- died = the patient’s death status (1 = dead, 0 = alive).\
+
+
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+resect  = read.csv("G:/My Drive/UIC RA CCTS/20200608 Side Project_R rms package/data/resect.csv")[-1] # Exclude the first variable (Patient ID)
+dim(resect) # 134 patients and 5 variables
+head(resect, n= 3)
+```
+
+The resect data is used to demonstrate the use of the function datadist(). This output specifies the following:
+
+- Low/High effect: The first/third Quantile
+
+- Adjust to: Median
+
+- Low/High: Minimum/Maximum
+
+- Low/High Prediction: The 10th smallest/largest predicted probability
+
+- Values: The level of categorical variables.\
+
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+# install.packages("rms")
+library(rms)
+# function datadist() in the rms package
+data_resect = datadist(resect)
+data_resect
+
+# function summary() in the base package
+summary(resect)
+```
+### 1.2  compare function datadist() in the rms package to the function summary() in the base package
+
+The table below compares the function datadist() in the rms package with the function summary() in the base package.
+
+![](C:/Users/pyen2/Dropbox/UIC RA CCTS/20200608 Side Project_R rms package/plot_table/1.jpg)
+
+
+\newpage 
+
+## 2. Logistic Regression Model 
+
+### 2.1 the function lrm() in the rms package
+
+Within a logistic regression model, the binary outcome variable Y takes on the value 1 or 0. In the rms package, the function lrm() is used to construct a logistic regression model. This output specifies the following:
+
+-  Obs: The total number of observations used to fit the model. Observations are subdivided into groups 0 and 1. The value 0 indicates the outcome “alive” and the value 1 indicates the outcome “died”.  
+
+- maxmax |deriv| : the maximum absolute value of the derivative at the point where the maximum likelihood function was estimated.
+
+- Model likelihood ratio test: the result of the model compared with the null model
+
+- Discrimination: $R^2$, g, gr, gp, and Brier.
+
+- Rank Discrimination: C statistic (area under the ROC curve) and Somers’ D (D_xy), gamma, and tau-a. To decide the model accuracy, C statistics is are the most commonly used. If the value of the C statistics falls into a) 0.6-0.7, b) 0.7-0.8, c) 0.8-0.9, and d)0.9-1.0, this indicates the model does a a) poor, b) fair, c) good, and d) excellent job at discrimination, respectively.
+
+- A table of coefficients, standard errors, and Wald Z statistics with their p values.
+
+
+### 2.2 the demonstration of logistic regression
+
+#### 2.2.1 Using function lrm() to construct a logistic regression for all of the predictors
+
+Using resect data to demonstrate the use of the function lrm(), a multiple logistic regression model was constructed to predict the outcome variable died. The predictors include age, prior, resection, and intubated. Among the four predictors, only the predictors resection and intubated are statistically significant.
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+# function lrm() in the rms package
+options(datadist="data_resect") # to store information with fit without accessing the original dataset
+
+LR_fun_lrm_rms01 = lrm(died ~ age + prior + resection  + intubated, 
+                       data=resect, 
+                       x=TRUE, y=TRUE) # x=TRUE, y=TRUE allows use of resid(), which.influence below
+LR_fun_lrm_rms01
+```
+
+#### 2.2.2 Using function fastbw() to perform model selection
+
+The function fastbw() in the rms package aims to perform backward elimination on predictors. The output produces the deletion statistics for variables, one at a time and in descending order of insignificance. The output also shows the parameter estimates for the final model after deleting variables.
+
+Now,  the complete model with 4 predictors is used to demonstrate the use of the function fastbw(). With a cutoff of 0.20, the predictors age and prior are removed from the complete model. The final model only includes the predictors resection and intubated.
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+# Model Selection
+# rule: Stopping rule. Defaults to "aic" for Akaike's information criterion. Use rule="p" to use P-values
+# sls: Significance level for staying in a model if rule="p". Default is .05.
+fastbw(LR_fun_lrm_rms01, rule="p", sls=0.20) 
+```
+
+In the final model, the R^2 of this model is 0.413, and the C statistic is 0.867. For the predictor resection, the parameter estimation is 0.5475 with P-value of 0.0418; and for the predictor intubated, the parameter estimation is 2.8640 with P-Value <0.001.
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+LR_fun_lrm_rms = lrm(died ~ resection  + intubated, 
+                     data=resect, 
+                     x=TRUE, y=TRUE)
+LR_fun_lrm_rms
+```
+
+#### 2.2.3 Using function summary() and plot() to demonstrate the odds ration of the predictors
+
+The function summary() and plot() in the base package for lrm() subject produce a more detailed summary of information about the model. The summary result for the function lrm() reveals the odds ratio and its 95% confidence interval for the continuous predictors resection and intubated. The plot for the function lrm() can visualize the odds ratio for the predictors.
+
+
+```{r out.width = '70%', fig.align = "center", message=FALSE, warning=FALSE}
+summary(LR_fun_lrm_rms)
+plot(summary(LR_fun_lrm_rms), main="Odds ratio for 'died'")
+```
+
+#### 2.2.4 Using function anova() to perform the Lack of Fit F-test
+
+The function anova() in the stats package is used to evaluate the Lack of Fit F-Test. The final model is compared to the null model (intercept model). The final model is significantly better than the null model (intercept model).
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+anova(LR_fun_lrm_rms) # compare to the null model
+```
+
+#### 2.2.5 Using function which.influence() and show.influence() to identify the influential points
+
+The function which.influence() in the rms package indicates the influential points in the regression model. We use the cutoff of dfbetas 0.3 to indicate important influential points. In this dataset, patients 84 and 94 are influential points.
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+inf_0.2 = which.influence(fit = LR_fun_lrm_rms, cutoff=0.2)
+inf_0.2
+
+inf_0.3 = which.influence(fit = LR_fun_lrm_rms, cutoff=0.3)
+inf_0.3
+show.influence(object = inf_0.3, dframe = data.frame(resect))
+
+```
+
+#### 2.2.6 Using function Prediction() to perform prediction for new dataset
+
+The function Predict() in the rms package shows the prediction result. The ggplot shows the effect of the predictors resection and intubated. 
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+head(Predict(LR_fun_lrm_rms))
+library(ggplot2)
+ggplot(Predict(LR_fun_lrm_rms))
+```
+
+The estimated probability of death can be shown from the function Predict(), the rms package, using the function plogis(), the stats package. 
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+head(Predict(LR_fun_lrm_rms, fun = plogis))
+ggplot(Predict(LR_fun_lrm_rms, fun = plogis))
+```
+
+
+#### 2.2.7 Using function nomogram() to plot the nomogram
+
+The function nomogram() in the rms package is used to draw the nomogram for the regression fit with a reference line produced from scoring points (default range 0–100). In this nomogram, each predictor is scaled according to the size of its effect on a common scale of 0–100 “points.” 
+
+A representative observation is shown by the marked points, corresponding to a person of tumor extent of the resection 4.78 cm, was required intubation at the end of surgery. Adding the points associated with each variable value gives the result shown on the scale of total points. For this observation, the result is 72 + 100 = 1, for which the scale of log odds at the bottom gives a predicted logit of 0.84, or a predicted probability of death of 1/(1 + exp(−0.84)) = 0.70.
+
+
+![](C:/Users/pyen2/Dropbox/UIC RA CCTS/20200608 Side Project_R rms package/nomogram.jpg)
+
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+nomogram(fit = LR_fun_lrm_rms, fun=plogis, fun.at=c(0.05, seq(0.1, 0.9, by = 0.1), 0.95), funlabel="Pr(died)")
+# plot(nomogram(fit = LR_fun_lrm_rms, fun=plogis, fun.at=c(0.05, seq(0.1, 0.9, by = 0.1), 0.95),  funlabel="Pr(died)"))
+```
+\newpage
+
+#### 2.2.8 Using function validate() to Validate the discrimation index
+
+The function validate() in the rms package to perform resampling validation of a model, with or without backwards step-wise variable selection. The table below includes the results of the model validation using 100 bootstrap replications.
+
+The area under the ROC curve, C statistic, is 0.5 + ($D_{xy}$/2) = 0.8670 and $R^2$ = 0.3780.
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+set.seed(20201001) 
+validate(LR_fun_lrm_rms, B = 100)
+```
+
+\newpage
+
+### 2.3 compare function lrm() in the rms package to the function glm() in the stats package
+
+The table below compares the function lrm() in the rms package with the function glm() in the stats package. 
+
+Using the lrm() in the rms package to construct a logistic regression provide more detailed information, including the discrimination index, the visualization, model selection, and the validation tool.  
+
+![](C:/Users/pyen2/Dropbox/UIC RA CCTS/20200608 Side Project_R rms package/plot_table/2.jpg)
+The following content demonstrate the use of the function glm() in the stats package. 
+
+```{r out.width = '100%', fig.align = "center", message=FALSE, warning=FALSE}
+# function glm() in the stats package
+LR_fun_glm = glm(died ~ resection  + intubated, data=resect,  family="binomial"(link="logit"))
+LR_fun_glm
+summary(LR_fun_glm)
+
+# The coefficient of resection has a point estimate of 0.5475 with 95% confidence interval of (0.0307, 1.1019) after adjusting the predictor intubated
+round(confint(LR_fun_glm, level = 0.95),4)
+
+# To understand the impact of changing a predictor on the odds of the outcome. Estimate the odds ratio for death associated with a 1 cm increase in resection size is 1.7289, with a 95% CI of (1.0312, 3.0098) adjusting the predictor intubated.
+round(exp(coef(LR_fun_glm)),4)
+round(exp(confint(LR_fun_glm)),4)
+
+# The function anova() in the stats package is used to evaluate the Lack of Fit F-Test. The final model is compared to the null model (intercept model). The final model is significantly better than the null model (intercept model).
+
+
+anova(LR_fun_glm) # compare to the null model
+pchisq(q = anova(LR_fun_glm)[3,2], df = 133-131, lower.tail = FALSE)
+# predict the outcome
+#predict(LR_fun_glm, resect, type="response")[1:5]
+
+#library(tibble)
+#predict(LR_fun_glm, newdata = data_frame(resection = c(4,5)))
+
+# Residual plots
+# In this case, the highly influential points 84 and 94 fall outside of the Cook’s distance (0.10) contours.
+par(mfrow=c(1,2))
+plot(LR_fun_glm, which=c(4:5))
+```
+
+
+
